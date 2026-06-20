@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Two-Device Browser Probe Call</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Controlled browser audio path</p>
+        <h1>Two-Device Probe Call</h1>
+      </div>
+      <div id="status" class="status" role="status">Idle</div>
+    </header>
+
+    <main>
+      <section class="steps">
+        <article class="tool-section step-card">
+          <div class="step-number">1</div>
+          <div>
+            <h2>Choose Endpoint</h2>
+            <div class="form-grid compact">
+              <label>
+                Room ID
+                <input id="roomInput" type="text" value="probe-room" autocomplete="off" />
+              </label>
+              <label>
+                Role
+                <select id="roleSelect">
+                  <option value="verifier">Verifier PC</option>
+                  <option value="endpoint">Phone endpoint</option>
+                </select>
+              </label>
+              <label>
+                Probe amplitude
+                <input id="amplitudeInput" type="number" min="0.01" max="0.5" step="0.01" value="0.08" />
+              </label>
+            </div>
+          </div>
+        </article>
+
+        <article class="tool-section step-card">
+          <div class="step-number">2</div>
+          <div>
+            <h2>Connect</h2>
+            <div class="button-row">
+              <button id="startMicButton" type="button">Start optional PC microphone</button>
+              <button id="resetRoomButton" type="button">Reset room</button>
+              <button id="connectButton" type="button">Connect</button>
+              <button id="resyncButton" type="button" disabled>Resync signaling</button>
+              <button id="hangupButton" type="button" disabled>Hang up</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="tool-section step-card">
+          <div class="step-number">3</div>
+          <div>
+            <h2>Run Probe</h2>
+            <div class="button-row">
+              <button id="recordRemoteProbeButton" type="button" disabled>Record return + send probe</button>
+              <button id="downloadWavButton" type="button" disabled>Download WAV</button>
+              <button id="downloadMetadataButton" type="button" disabled>Download JSON</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <details class="tool-section">
+        <summary>Advanced probe settings</summary>
+        <div class="form-grid details-content">
+          <label>
+            Remote record duration (s)
+            <input id="recordDurationInput" type="number" min="1" max="10" step="0.25" value="3.5" />
+          </label>
+          <label>
+            Send-probe offset in recording (s)
+            <input id="autoplayOffsetInput" type="number" min="0" max="5" step="0.1" value="0.75" />
+          </label>
+          <label>
+            Detection threshold (dB)
+            <input id="thresholdInput" type="number" min="0" max="60" step="0.5" value="10" />
+          </label>
+          <label>
+            Set A tones (Hz)
+            <input id="setAInput" type="text" inputmode="numeric" value="6050, 6200, 6890" />
+          </label>
+          <label>
+            Set B tones (Hz)
+            <input id="setBInput" type="text" inputmode="numeric" value="5560, 5780, 6580" />
+          </label>
+        </div>
+      </details>
+
+      <section class="layout">
+        <details class="tool-section">
+          <summary>Capture and WebRTC diagnostics</summary>
+          <div class="details-content">
+            <div class="data-grid">
+              <div>
+                <h3>Requested constraints</h3>
+                <pre id="constraintsOutput"></pre>
+              </div>
+              <div>
+                <h3>Track settings</h3>
+                <pre id="settingsOutput">Microphone not started.</pre>
+              </div>
+            </div>
+            <h3>Call state</h3>
+            <pre id="callStateOutput">Not connected.</pre>
+            <audio id="remoteAudio" autoplay playsinline controls></audio>
+          </div>
+        </details>
+
+        <div class="tool-section">
+          <div class="section-heading">
+            <h2>Received Evidence</h2>
+            <p>Analysis of the verifier's recorded remote phone-mic stream.</p>
+          </div>
+          <canvas id="evidenceCanvas" width="900" height="260"></canvas>
+          <div id="evidenceOutput" class="evidence-output">No remote recording yet.</div>
+        </div>
+      </section>
+
+      <details class="tool-section">
+        <summary>Metadata preview</summary>
+        <pre id="metadataOutput" class="details-content">No recording yet.</pre>
+      </details>
+    </main>
+
+    <script src="call.js"></script>
+  </body>
+</html>
