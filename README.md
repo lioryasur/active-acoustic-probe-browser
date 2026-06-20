@@ -1,15 +1,22 @@
 # Browser Acoustic Probe Call
 
-Minimal two-device WebRTC prototype for testing whether a controlled browser
-audio path can carry an active high-band acoustic probe.
+Proof-of-concept two-device WebRTC app for the paper **Active Acoustic Probes
+for Audio Deepfake Detection**. It demonstrates that a VoIP-style browser call
+can carry a high-band active acoustic probe and return measurable probe evidence
+when the client/provider controls the audio path and requests the right audio
+processing settings.
 
 The verifier browser sends a short multi-tone probe through a WebRTC call. The
 phone endpoint plays that audio, captures the acoustic return with its
 microphone, sends the microphone stream back over WebRTC, and the verifier
 records/scores the returned audio.
 
-This is a controlled prototype. It does not claim that production Zoom, Teams,
-WhatsApp, PSTN, or cellular paths preserve the probe by default.
+The deployment idea mirrored here is a provider-integrated call client that can
+create a brief probe window with echo cancellation, noise suppression, and
+automatic gain control disabled or suspended. Under that setting, this prototype
+shows the end-to-end mechanics: send probe over the call, play it acoustically,
+capture it on the phone microphone, return it over WebRTC, and detect it on the
+verifier side.
 
 ## Signal Path
 
@@ -160,16 +167,27 @@ The JSON sidecar records:
 - probe frequencies, amplitude, timing, and sample rate;
 - browser-side peak-to-sideband analysis.
 
-## Interpretation
+## What This Demonstrates
 
-Use cautious language:
+This prototype demonstrates the core implementation claim behind the paper's
+VoIP deployment path:
 
-- Good: controlled browser audio path.
-- Good: custom no-suppression browser prototype.
-- Good: feasibility test for a vendor-controlled client path.
-- Avoid: claim that production meeting apps preserve the probe by default.
-- Avoid: claim that this proves robustness across arbitrary codecs and devices.
+- A browser/WebRTC call can be instrumented to send a verifier-generated
+  high-band acoustic probe.
+- The remote endpoint can play that probe through its speaker, capture the
+  acoustic return through its microphone, and send the microphone stream back.
+- With the right provider/client audio settings, the returned stream can
+  preserve enough high-band probe structure for peak-to-sideband detection.
+- This is a working proof of concept for a vendor-controlled VoIP client path,
+  not just a local audio recording demo.
+
+## Scope
 
 If the JSON shows a selected ICE candidate type of `relay`, the media used TURN.
 This prototype currently uses public STUN only, so most successful outside-LAN
 runs will be peer-to-peer (`srflx`) rather than TURN-relayed.
+
+This repository is not a benchmark of default Zoom, Teams, WhatsApp, PSTN, or
+cellular behavior. Those systems may enable codecs and audio processing that
+attenuate the high-band probe unless the provider explicitly creates a suitable
+probe window.
