@@ -7,6 +7,8 @@ Use this when splitting `browser_probe/` out of the research repository.
 Copy the contents of `browser_probe/` into the new repository root:
 
 - `.gitignore`
+- `CITATION.cff`
+- `LICENSE`
 - `README.md`
 - `requirements.txt`
 - `server.py`
@@ -14,6 +16,7 @@ Copy the contents of `browser_probe/` into the new repository root:
 - `call.js`
 - `styles.css`
 - `analyze_browser_probe_wav.py`
+- `tests/test_ordered_scoring.py`
 
 Do not copy generated WAV/JSON exports or `__pycache__/`.
 
@@ -30,6 +33,7 @@ git commit -m "Add browser acoustic probe call prototype"
 ```powershell
 python -m py_compile server.py analyze_browser_probe_wav.py
 node --check call.js
+python -m unittest discover -s tests
 python server.py --port 8765
 ```
 

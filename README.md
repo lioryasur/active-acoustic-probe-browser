@@ -1,7 +1,7 @@
 # Browser Acoustic Probe Call
 
 Proof-of-concept two-device WebRTC app for the paper **Active Acoustic Probes
-for Audio Deepfake Detection**. It demonstrates that a VoIP-style browser call
+for AI Voice Call Detection**. It demonstrates that a VoIP-style browser call
 can carry a high-band active acoustic probe and return measurable probe evidence
 when the client/provider controls the audio path and requests the right audio
 processing settings.
@@ -90,6 +90,18 @@ Safety notes:
   not share the URL.
 - Browser microphone access still requires explicit permission.
 
+## Security and Privacy
+
+This is a temporary research server, not a production signaling service. Room
+messages and resets are unauthenticated. Anyone who has the tunnel URL and room
+ID can read or write that room's signaling messages while the server is
+running. Use the randomly generated room ID, share it only with the second
+device, and stop the tunnel and server after the test.
+
+Downloaded metadata can include browser details, local and remote ICE
+addresses, ports, and device settings. Review JSON files before sharing them.
+Do not deploy this server on a public host.
+
 ## Test Procedure
 
 Use the same `Room ID` on both devices.
@@ -134,6 +146,12 @@ The scorer reports:
 - per-set best one-second analysis window;
 - per-tone peak-to-sideband scores;
 - timed two-set pass/fail result.
+
+Run its unit tests with:
+
+```powershell
+python -m unittest discover -s tests
+```
 
 ## Default Probe
 

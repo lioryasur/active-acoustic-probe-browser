@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this prototype, please cite the camera-ready paper."
+title: "Active Acoustic Probes for AI Voice Call Detection"
+authors:
+  - family-names: "Yasur"
+    given-names: "Lior"
+    orcid: "https://orcid.org/0009-0001-3075-8176"
+  - family-names: "Mirsky"
+    given-names: "Yisroel"
+    orcid: "https://orcid.org/0000-0001-6367-2734"
+year: 2026
+license: MIT
+repository-code: "https://github.com/lioryasur/active-acoustic-probe-browser"

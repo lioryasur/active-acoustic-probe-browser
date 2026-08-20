@@ -27,6 +27,13 @@ const ANALYSIS_DEFAULTS = {
 
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
+function createRoomName() {
+  const randomPart = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID().replaceAll("-", "").slice(0, 12)
+    : Math.random().toString(36).slice(2, 14);
+  return `probe-${randomPart}`;
+}
+
 const dom = {
   status: document.querySelector("#status"),
   roomInput: document.querySelector("#roomInput"),
@@ -56,7 +63,7 @@ const dom = {
 
 const state = {
   peerId: `peer-${Math.random().toString(36).slice(2, 10)}`,
-  room: "probe-room",
+  room: createRoomName(),
   role: "verifier",
   audioContext: null,
   micStream: null,
@@ -156,7 +163,7 @@ async function apiPost(path, body = {}) {
 }
 
 function cleanRoomName() {
-  const room = dom.roomInput.value.trim() || "probe-room";
+  const room = dom.roomInput.value.trim() || state.room;
   return room.replace(/[^a-zA-Z0-9_.-]/g, "-");
 }
 
@@ -706,6 +713,35 @@ function secondHighest(values) {
   return sorted.length > 1 ? sorted[1] : sorted[0] ?? Number.NEGATIVE_INFINITY;
 }
 
+function selectBestOrderedWindows(scoredSets) {
+  let best = null;
+
+  function visit(setIndex, minimumWindowIndex, selected) {
+    if (setIndex === scoredSets.length) {
+      const setScores = selected.map((result) => result.setScoreDb);
+      const weakestScore = Math.min(...setScores);
+      const scoreSum = setScores.reduce((sum, score) => sum + score, 0);
+      if (
+        !best ||
+        weakestScore > best.weakestScore ||
+        (weakestScore === best.weakestScore && scoreSum > best.scoreSum)
+      ) {
+        best = { results: selected.slice(), weakestScore, scoreSum };
+      }
+      return;
+    }
+
+    for (let windowIndex = minimumWindowIndex; windowIndex < scoredSets[setIndex].length; windowIndex += 1) {
+      selected.push(scoredSets[setIndex][windowIndex]);
+      visit(setIndex + 1, windowIndex + 1, selected);
+      selected.pop();
+    }
+  }
+
+  visit(0, 0, []);
+  return best;
+}
+
 function scoreTone(samples, start, length, sampleRate, targetHz) {
   const peakCandidates = [];
   for (let offset = -ANALYSIS_DEFAULTS.peakSearchHz; offset <= ANALYSIS_DEFAULTS.peakSearchHz; offset += 1) {
@@ -751,11 +787,15 @@ function analyzeRecording(samples, sampleRate, toneSets, thresholdDb) {
     return { error: "Recording is shorter than the analysis window." };
   }
   const windows = [];
-  for (let start = 0; start + windowLength <= samples.length; start += hopLength) {
+  const lastStart = samples.length - windowLength;
+  for (let start = 0; start <= lastStart; start += hopLength) {
     windows.push({ start, startS: start / sampleRate });
   }
-  const setResults = toneSets.map((toneSet) => {
-    const scoredWindows = windows.map((window) => {
+  if (windows.length && windows[windows.length - 1].start !== lastStart) {
+    windows.push({ start: lastStart, startS: lastStart / sampleRate });
+  }
+  const scoredSets = toneSets.map((toneSet) =>
+    windows.map((window) => {
       const tones = toneSet.frequenciesHz.map((freq) => scoreTone(samples, window.start, windowLength, sampleRate, freq));
       const scores = tones.map((tone) => tone.scoreDb);
       const passingToneCount = scores.filter((score) => score >= thresholdDb).length;
@@ -767,8 +807,14 @@ function analyzeRecording(samples, sampleRate, toneSets, thresholdDb) {
         passingToneCount,
         pass: passingToneCount >= 2,
       };
-    });
-    const bestWindow = scoredWindows.reduce((best, row) => (row.setScoreDb > best.setScoreDb ? row : best), scoredWindows[0]);
+    }),
+  );
+  const orderedSelection = selectBestOrderedWindows(scoredSets);
+  const setResults = toneSets.map((toneSet, setIndex) => {
+    const scoredWindows = scoredSets[setIndex];
+    const bestWindow = orderedSelection
+      ? orderedSelection.results[setIndex]
+      : scoredWindows.reduce((best, row) => (row.setScoreDb > best.setScoreDb ? row : best), scoredWindows[0]);
     return {
       name: toneSet.name,
       frequenciesHz: toneSet.frequenciesHz,
@@ -781,17 +827,14 @@ function analyzeRecording(samples, sampleRate, toneSets, thresholdDb) {
       })),
     };
   });
-  const firstSetPasses = setResults[0]?.passingWindows || [];
-  const secondSetPasses = setResults[1]?.passingWindows || [];
-  const timedTwoSetPass = firstSetPasses.some((aWindow) =>
-    secondSetPasses.some((bWindow) => bWindow.startS > aWindow.startS),
-  );
+  const timedTwoSetPass = Boolean(orderedSelection) && orderedSelection.results.every((result) => result.pass);
   return {
     thresholdDb,
     parameters: cloneForJson(ANALYSIS_DEFAULTS),
     sampleRate,
     durationS: samples.length / sampleRate,
     setResults,
+    timedTwoSetScoreDb: orderedSelection ? orderedSelection.weakestScore : null,
     timedTwoSetPass,
   };
 }
@@ -967,6 +1010,7 @@ function publishDebugState() {
 }
 
 function initialize() {
+  dom.roomInput.value = state.room;
   dom.constraintsOutput.textContent = safeJson({ audio: REQUESTED_AUDIO_CONSTRAINTS, video: false });
   dom.startMicButton.textContent = dom.roleSelect.value === "endpoint" ? "Start phone microphone" : "Start optional PC microphone";
   drawEvidenceChart(null);

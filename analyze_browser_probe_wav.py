@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 import statistics
+from itertools import combinations
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -145,8 +146,12 @@ def spectrum_windows(audio: np.ndarray, sample_rate: int, window_s: float, hop_s
     if len(audio) < window_n:
         return []
 
+    last_start = len(audio) - window_n
+    starts = list(range(0, last_start + 1, hop_n))
+    if starts[-1] != last_start:
+        starts.append(last_start)
     windows: list[dict[str, Any]] = []
-    for start in range(0, len(audio) - window_n + 1, hop_n):
+    for start in starts:
         segment = audio[start : start + window_n]
         tapered = segment * np.hanning(len(segment))
         magnitude = np.abs(np.fft.rfft(tapered)) + EPS
@@ -191,6 +196,7 @@ def score_set(
         "name": str(tone_set["name"]),
         "frequencies_hz": tones,
         "best_window": best,
+        "_scored_windows": scored_windows,
         "passing_windows": [
             {
                 "start_s": row["start_s"],
@@ -202,6 +208,30 @@ def score_set(
             if row["pass"]
         ],
     }
+
+
+def select_best_ordered_windows(set_results: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """Select ordered windows that maximize the weakest set score."""
+
+    if not set_results:
+        return None
+    scored_sets = [result["_scored_windows"] for result in set_results]
+    if len(scored_sets) == 1:
+        return [max(scored_sets[0], key=lambda row: float(row["set_score_db"]))]
+    frame_count = min(len(rows) for rows in scored_sets)
+    if frame_count < len(scored_sets):
+        return None
+
+    best: list[dict[str, Any]] | None = None
+    best_key: tuple[float, float, tuple[int, ...]] | None = None
+    for indices in combinations(range(frame_count), len(scored_sets)):
+        selected = [scored_sets[set_index][frame_index] for set_index, frame_index in enumerate(indices)]
+        scores = [float(row["set_score_db"]) for row in selected]
+        key = (min(scores), sum(scores), tuple(-index for index in indices))
+        if best_key is None or key > best_key:
+            best_key = key
+            best = selected
+    return best
 
 
 def score_recording(
@@ -218,13 +248,18 @@ def score_recording(
         raise ValueError(f"Recording is shorter than the {window_s:g}s analysis window")
 
     set_results = [score_set(windows, tone_set, threshold_db) for tone_set in tone_sets]
-    first_passes = set_results[0]["passing_windows"] if len(set_results) >= 1 else []
-    second_passes = set_results[1]["passing_windows"] if len(set_results) >= 2 else []
-    timed_two_set_pass = any(
-        b_window["start_s"] > a_window["start_s"]
-        for a_window in first_passes
-        for b_window in second_passes
+    ordered_windows = select_best_ordered_windows(set_results)
+    if ordered_windows is not None:
+        for result, selected in zip(set_results, ordered_windows):
+            result["best_window"] = selected
+    timed_two_set_pass = ordered_windows is not None and all(bool(window["pass"]) for window in ordered_windows)
+    timed_two_set_score_db = (
+        min(float(window["set_score_db"]) for window in ordered_windows)
+        if ordered_windows is not None
+        else None
     )
+    for result in set_results:
+        result.pop("_scored_windows", None)
     all_scores = [
         tone["score_db"]
         for result in set_results
@@ -243,6 +278,7 @@ def score_recording(
             "sideband_max_hz": SIDE_BAND_MAX_HZ,
         },
         "set_results": set_results,
+        "timed_two_set_score_db": timed_two_set_score_db,
         "timed_two_set_pass": timed_two_set_pass,
         "median_best_tone_score_db": statistics.median(all_scores) if all_scores else None,
     }
